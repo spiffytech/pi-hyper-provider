@@ -25,7 +25,7 @@ pi install git:github.com/charmbracelet/pi-hyper-provider
   then open `pi`.
 
 Pick a Hyper model by sending `/models` and filtering by either provider name
-`hyper` or `model-name`.
+`hyper` or `model-name` like `glm-5.1`.
 
 Model info is fetched at startup and cached locally; the cache is used as a
 fallback when the `/models` endpoint is unreachable. By default, your remaining
