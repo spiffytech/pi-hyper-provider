@@ -1,0 +1,109 @@
+[tools]
+node = "26"
+
+[tasks.fmt]
+description = "Format all files with Biome"
+run = "npm run fmt"
+
+[tasks.lint]
+description = "Lint all files with Biome"
+run = "npm run lint"
+
+[tasks.typecheck]
+description = "Type-check with TypeScript"
+run = "npm run typecheck"
+
+[tasks.check]
+description = "Format, lint, and type-check"
+depends = ["fmt", "lint", "typecheck"]
+
+[tasks."release:bump"]
+description = "Bump the package version"
+usage = '''
+arg "<version>" help="SemVer increment or exact version"
+flag "--preid <preid>" help="Prerelease identifier for pre* increments"
+'''
+shell = "bash -c"
+run = '''
+set -euo pipefail
+
+version=${usage_version:?}
+preid=${usage_preid:-}
+
+exact_version_re='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+is_exact_version=false
+if [[ "$version" =~ $exact_version_re ]]; then
+	is_exact_version=true
+fi
+
+case "$version" in
+	patch|minor|major|prepatch|preminor|premajor|prerelease) ;;
+	*)
+		if [[ "$is_exact_version" != true ]]; then
+			echo "Error: unsupported version '$version'" >&2
+			echo "Use patch, minor, major, prepatch, preminor, premajor, prerelease, or an exact SemVer." >&2
+			exit 1
+		fi
+		;;
+esac
+
+if [[ -n "$preid" ]]; then
+	case "$version" in
+		prepatch|preminor|premajor|prerelease) ;;
+		*)
+			echo "Error: --preid only applies to prepatch, preminor, premajor, or prerelease" >&2
+			exit 1
+			;;
+	esac
+fi
+
+args=(version "$version" --no-git-tag-version)
+if [[ -n "$preid" ]]; then
+	args+=(--preid "$preid")
+fi
+npm "${args[@]}"
+'''
+
+[tasks."release:pack"]
+description = "Check and dry-run npm package packing"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+
+mise run check
+npm pack --dry-run
+'''
+
+[tasks."release:publish"]
+description = "Check, dry-run, and publish the npm package"
+usage = '''
+flag "--tag <tag>" help="npm dist-tag" default="latest"
+flag "--otp <otp>" help="One-time password for npm two-factor auth"
+'''
+shell = "bash -c"
+run = '''
+set -euo pipefail
+
+tag=${usage_tag:?}
+otp=${usage_otp:-}
+
+version=$(node -e 'const fs = require("node:fs"); const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")); console.log(pkg.version);')
+if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+- && "$tag" == latest ]]; then
+	echo "Error: refusing to publish prerelease $version with tag latest" >&2
+	echo "Use --tag beta or another prerelease dist-tag." >&2
+	exit 1
+fi
+
+mise run check
+
+publish_args=(--access public --tag "$tag")
+if [[ -n "$otp" ]]; then
+	publish_args+=(--otp "$otp")
+fi
+
+echo "Publishing (dry run)"
+npm publish --dry-run "${publish_args[@]}"
+
+echo "Publishing"
+npm publish "${publish_args[@]}"
+'''
