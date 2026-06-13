@@ -91,6 +91,17 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 	pi.registerCommand("hyper-status", {
 		description: "Configure the Charm Hyper footer status",
 		handler: async (args, ctx) => {
+			if (!args.trim()) {
+				if (!ctx.hasUI) {
+					ctx.ui.notify(statusItemsSummary(readHyperStatusItems()), "info");
+					return;
+				}
+
+				const changed = await configureStatusItems(ctx);
+				if (changed) await refresh(ctx);
+				return;
+			}
+
 			const message = updateStatusItems(args);
 			ctx.ui.notify(message, "info");
 			await refresh(ctx);
@@ -110,6 +121,60 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 			await refresh(ctx);
 		}
 	});
+}
+
+async function configureStatusItems(ctx: ExtensionContext): Promise<boolean> {
+	const initial = readHyperStatusItems();
+	let draft: HyperStatusItems = { ...initial };
+
+	for (;;) {
+		const teamOption = `Team name prefix: ${onOff(draft.teamName)}`;
+		const creditsOption = `Hyper credits balance: ${onOff(draft.hypercredits)}`;
+		const resetOption = "Reset to defaults";
+		const saveOption = "Save changes";
+		const cancelOption = "Cancel";
+
+		const choice = await ctx.ui.select("Hyper status settings", [
+			teamOption,
+			creditsOption,
+			resetOption,
+			saveOption,
+			cancelOption,
+		]);
+
+		if (choice === undefined || choice === cancelOption) {
+			ctx.ui.notify("Hyper status settings unchanged", "info");
+			return false;
+		}
+		if (choice === teamOption) {
+			draft = { ...draft, teamName: !draft.teamName };
+			continue;
+		}
+		if (choice === creditsOption) {
+			draft = { ...draft, hypercredits: !draft.hypercredits };
+			continue;
+		}
+		if (choice === resetOption) {
+			draft = defaultHyperStatusItems();
+			continue;
+		}
+		if (choice === saveOption) {
+			if (sameStatusItems(initial, draft)) {
+				ctx.ui.notify(`Hyper status unchanged. ${statusItemsSummary(draft)}`, "info");
+				return false;
+			}
+
+			const ok = await ctx.ui.confirm("Save Hyper status settings?", statusItemsSummary(draft));
+			if (!ok) {
+				ctx.ui.notify("Hyper status settings unchanged", "info");
+				return false;
+			}
+
+			writeHyperStatusItems(draft);
+			ctx.ui.notify(`Hyper status updated. ${statusItemsSummary(draft)}`, "info");
+			return true;
+		}
+	}
 }
 
 function updateStatusItems(args: string): string {
@@ -168,6 +233,14 @@ function booleanArgument(value: string): boolean | undefined {
 		default:
 			return undefined;
 	}
+}
+
+function onOff(value: boolean): "on" | "off" {
+	return value ? "on" : "off";
+}
+
+function sameStatusItems(a: HyperStatusItems, b: HyperStatusItems): boolean {
+	return a.teamName === b.teamName && a.hypercredits === b.hypercredits;
 }
 
 function statusItemsSummary(statusItems: HyperStatusItems): string {
