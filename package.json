@@ -23,6 +23,9 @@
 		"@earendil-works/pi-ai": "*",
 		"@earendil-works/pi-coding-agent": "*"
 	},
+	"dependencies": {
+		"typebox": "^1.1.38"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.16",
 		"@earendil-works/pi-ai": "^0.78.0",

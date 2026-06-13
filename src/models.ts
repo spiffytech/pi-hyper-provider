@@ -1,18 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
+import { Type, type Static, type TSchema } from "typebox";
+import { Value } from "typebox/value";
 import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
 import { fetchJson } from "./http.js";
-import {
-	booleanProperty,
-	type JsonObject,
-	type JsonValue,
-	isJsonObject,
-	positiveTokenCount,
-	property,
-	stringArrayProperty,
-	stringProperty,
-} from "./json.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_CONTEXT_WINDOW = 128_000;
@@ -32,46 +24,92 @@ interface HyperModel {
 	maxOutputTokens: number;
 }
 
+const RawHyperModelSchema = Type.Object(
+	{
+		id: Type.String(),
+		display_name: Type.Optional(Type.Unknown()),
+		supports_reasoning: Type.Optional(Type.Unknown()),
+		supports_reasoning_effort: Type.Optional(Type.Unknown()),
+		reasoning_effort_levels: Type.Optional(Type.Unknown()),
+		supports_attachments: Type.Optional(Type.Unknown()),
+		context_window: Type.Optional(Type.Unknown()),
+		max_output_tokens: Type.Optional(Type.Unknown()),
+	},
+	{ additionalProperties: true },
+);
+
+const ModelPayloadSchema = Type.Object(
+	{
+		data: Type.Array(RawHyperModelSchema),
+	},
+	{ additionalProperties: true },
+);
+
+type RawHyperModel = Static<typeof RawHyperModelSchema>;
+
 function modelCachePath(): string {
 	return path.join(hyperExtensionDir(), "models.json");
 }
 
-function parseModelPayload(payload: JsonValue, source: string): HyperModel[] {
-	if (!isJsonObject(payload)) {
-		throw new Error(`${source} must contain a JSON object`);
+function parseWithSchema<const Schema extends TSchema>(
+	schema: Schema,
+	payload: unknown,
+	source: string,
+): Static<Schema> {
+	if (!Value.Check(schema, payload)) {
+		throw new Error(`${source} is invalid: ${formatValidationErrors(source, schema, payload)}`);
 	}
-	const data = property(payload, "data");
-	if (!Array.isArray(data)) {
-		throw new Error(`${source} must contain a data array`);
-	}
-
-	const models: HyperModel[] = [];
-	for (const [index, entry] of data.entries()) {
-		if (!isJsonObject(entry)) {
-			throw new Error(`${source} data[${index}] must contain a JSON object`);
-		}
-		models.push(parseHyperModel(entry, `${source} data[${index}]`));
-	}
-	if (models.length === 0) {
-		throw new Error(`${source} contained no models`);
-	}
-	return models;
+	return Value.Parse(schema, payload);
 }
 
-function parseHyperModel(entry: JsonObject, source: string): HyperModel {
-	const id = stringProperty(entry, "id");
+function formatValidationErrors(source: string, schema: TSchema, payload: unknown): string {
+	return Value.Errors(schema, payload)
+		.slice(0, 3)
+		.map((error) => `${formatErrorPath(source, error.instancePath)} ${error.message}`)
+		.join("; ");
+}
+
+function formatErrorPath(source: string, instancePath: string): string {
+	if (!instancePath) return source;
+	return `${source}${instancePath}`;
+}
+
+function parseModelPayload(payload: unknown, source: string): HyperModel[] {
+	const parsed = parseWithSchema(ModelPayloadSchema, payload, source);
+	if (parsed.data.length === 0) {
+		throw new Error(`${source} contained no models`);
+	}
+	return parsed.data.map((entry, index) => parseHyperModel(entry, `${source} data[${index}]`));
+}
+
+function parseHyperModel(entry: RawHyperModel, source: string): HyperModel {
+	const id = nonEmptyString(entry.id);
 	if (!id) throw new Error(`${source} is missing id`);
 
 	return {
 		id,
-		displayName: stringProperty(entry, "display_name") ?? id,
-		supportsReasoning: booleanProperty(entry, "supports_reasoning"),
-		supportsReasoningEffort: booleanProperty(entry, "supports_reasoning_effort"),
-		reasoningEffortLevels: stringArrayProperty(entry, "reasoning_effort_levels"),
-		supportsAttachments: booleanProperty(entry, "supports_attachments"),
-		contextWindow: positiveTokenCount(entry, "context_window", DEFAULT_CONTEXT_WINDOW),
-		maxOutputTokens: positiveTokenCount(entry, "max_output_tokens", DEFAULT_MAX_TOKENS),
+		displayName: nonEmptyString(entry.display_name) ?? id,
+		supportsReasoning: entry.supports_reasoning === true,
+		supportsReasoningEffort: entry.supports_reasoning_effort === true,
+		reasoningEffortLevels: stringArray(entry.reasoning_effort_levels),
+		supportsAttachments: entry.supports_attachments === true,
+		contextWindow: positiveTokenCount(entry.context_window, DEFAULT_CONTEXT_WINDOW),
+		maxOutputTokens: positiveTokenCount(entry.max_output_tokens, DEFAULT_MAX_TOKENS),
 	};
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function positiveTokenCount(value: unknown, fallback: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return fallback;
+	return Math.floor(value);
 }
 
 function toProviderModel(model: HyperModel): ProviderModelConfig {
@@ -109,25 +147,24 @@ function buildThinkingLevelMap(levels: string[]): ThinkingLevelMap | undefined {
 	return result;
 }
 
-async function fetchModelPayload(): Promise<JsonValue> {
+async function fetchModelPayload(): Promise<unknown> {
 	return fetchJson(`${hyperApiBaseUrl()}/models`, {
 		timeoutMs: MODEL_FETCH_TIMEOUT_MS,
 	});
 }
 
-function readCachedModelPayload(): JsonValue | undefined {
+function readCachedModelPayload(): unknown | undefined {
 	const cachePath = modelCachePath();
 	if (!existsSync(cachePath)) return undefined;
 	try {
-		const payload: JsonValue = JSON.parse(readFileSync(cachePath, "utf-8"));
-		return payload;
+		return JSON.parse(readFileSync(cachePath, "utf-8"));
 	} catch (err) {
 		console.error(`Failed to read Hyper model cache at ${cachePath}: ${String(err)}`);
 		return undefined;
 	}
 }
 
-function writeCachedModelPayload(payload: JsonValue): void {
+function writeCachedModelPayload(payload: unknown): void {
 	try {
 		mkdirSync(hyperExtensionDir(), { recursive: true });
 		writeFileSync(modelCachePath(), `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
