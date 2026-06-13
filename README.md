@@ -1,25 +1,32 @@
 # @charmland/pi-hyper-provider
 
-A [Pi] extension that registers [Charm Hyper] as a model provider, including
-OAuth device-flow login, dynamic model discovery, and a credit-balance status
-indicator.
+[![npm version](https://img.shields.io/npm/v/@charmland/pi-hyper-provider.svg)](https://www.npmjs.com/package/@charmland/pi-hyper-provider)
 
-[Pi]: https://github.com/earendil-works/pi/
-[Charm Hyper]: https://hyper.charm.land
+A [Pi] extension that registers Charm's [Hyper] inference provider with Pi,
+supporting API keys or OAuth, dynamic model discovery, and optionally showing
+your team name and Hypercredit balance in the status line.
+
+[Pi]: https://pi.dev
+[Hyper]: https://hyper.charm.land
 
 ```sh
+# via NPM
 pi install npm:@charmland/pi-hyper-provider
+
+# via git
+pi install git:github.com/charmbracelet/pi-hyper-provider
 ```
 
 ## Usage
 
-Once installed, select the `Charm Hyper` provider and log in via the device
-flow. Models are fetched from the Hyper API at startup and cached locally; the
-cache is used as a fallback when the API is unreachable. Your remaining credit
+Once installed, run `/login` and select the `Charm Hyper` provider to log in.
+Models are fetched at startup and cached locally; the cache is used as a
+fallback when the API is unreachable. By default, your remaining Hypercredit
 balance is shown in the status line while a Hyper model is active.
 
-Use `/hyper-status` to configure the status line interactively. The scriptable
-forms are also available:
+Use `/hyper-status` to configure the status line interactively and toggle things
+on/off/reset. `teamName` defaults to `false` and `hypercredits` defaults to
+`true`. Scriptable forms are also available:
 
 ```sh
 /hyper-status teamName true
@@ -32,24 +39,25 @@ forms are also available:
 - `HYPER_URL` — override the Hyper base URL (default `https://hyper.charm.land`).
 - `HYPER_API_KEY` — API key used when not authenticating via OAuth.
 
-## Development
+## Whatcha think?
 
-Prerequisites: [mise] (installs Node automatically).
+We’d love to hear your thoughts on this project. Need help? We gotchu. You can find us on:
 
-[mise]: https://mise.jdx.dev/
+- [Twitter](https://twitter.com/charmcli)
+- [Slack][slack]
+- [Discord][discord]
+- [The Fediverse](https://mastodon.social/@charmcli)
+- [Bluesky](https://bsky.app/profile/charm.land)
 
-```sh
-# Install dependencies
-npm install
+[slack]: https://charm.land/slack
+[discord]: https://charm.land/discord
 
-# Format, lint, and type-check
-mise run check
-```
+## License
 
-### Releasing
+[TODO](https://github.com/charmbracelet/pi-hyper-provider/raw/main/LICENSE.md)
 
-```sh
-mise run release:bump <patch|minor|major|prerelease|x.y.z> [--preid <id>]
-mise run release:pack
-mise run release:publish [--tag <tag>] [--otp <otp>]
-```
+---
+
+Part of [Charm](https://charm.land).
+
+<a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-softy.jpg" /></a>
