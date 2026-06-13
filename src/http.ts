@@ -1,14 +1,13 @@
-import type { JsonValue } from "./json.js";
-
 export interface FetchJsonOptions {
 	method?: RequestInit["method"];
 	headers?: RequestInit["headers"];
 	body?: RequestInit["body"];
 	signal?: AbortSignal;
 	timeoutMs: number;
+	allowHttpErrorPayload?: boolean;
 }
 
-export async function fetchJson(url: string, options: FetchJsonOptions): Promise<JsonValue> {
+export async function fetchJson(url: string, options: FetchJsonOptions): Promise<unknown> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 	const abortFromCaller = () => controller.abort();
@@ -25,12 +24,11 @@ export async function fetchJson(url: string, options: FetchJsonOptions): Promise
 			body: options.body,
 			signal: controller.signal,
 		});
-		if (!response.ok) {
+		if (!response.ok && !options.allowHttpErrorPayload) {
 			const body = await response.text();
 			throw new Error(`${url} returned ${response.status}: ${body}`);
 		}
-		const payload: JsonValue = await response.json();
-		return payload;
+		return response.json();
 	} finally {
 		clearTimeout(timeout);
 		options.signal?.removeEventListener("abort", abortFromCaller);
