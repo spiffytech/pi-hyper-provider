@@ -21,8 +21,8 @@ pi install git:github.com/charmbracelet/pi-hyper-provider
 
 Once installed, run `/login` and select the `Charm Hyper` provider to log in.
 Models are fetched at startup and cached locally; the cache is used as a
-fallback when the API is unreachable. By default, your remaining Hypercredit
-balance is shown in the status line while a Hyper model is active.
+fallback when the `/models` endpoint is unreachable. By default, your remaining
+Hypercredit balance is shown in the status line while a Hyper model is active.
 
 Use `/hyper-status` to configure the status line interactively and toggle things
 on/off/reset. `teamName` defaults to `false` and `hypercredits` defaults to
