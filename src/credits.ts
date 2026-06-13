@@ -37,11 +37,15 @@ function isHyperModel(model: ExtensionContext["model"]): model is NonNullable<Ex
 	return model?.provider === PROVIDER_NAME;
 }
 
-function statusText(balance: number, statusItems: HyperStatusItems, teamName: string | undefined): string | undefined {
-	if (!statusItems.hypercredits) return undefined;
+function statusText(balance: number, statusItems: HyperStatusItems, teamName: string | undefined): string {
 	const credits = `${HYPER_GEM} ${formatCredits(balance)} hc`;
 	if (statusItems.teamName && teamName) return `${teamName}: ${credits}`;
 	return credits;
+}
+
+function teamNameStatusText(statusItems: HyperStatusItems, teamName: string | undefined): string | undefined {
+	if (!statusItems.teamName || !teamName) return undefined;
+	return `${HYPER_GEM} ${teamName}`;
 }
 
 function storedTeamName(ctx: ExtensionContext): string | undefined {
@@ -64,8 +68,9 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 		}
 
 		const statusItems = readHyperStatusItems();
+		const teamName = storedTeamName(ctx);
 		if (!statusItems.hypercredits) {
-			ctx.ui.setStatus(PROVIDER_NAME, undefined);
+			ctx.ui.setStatus(PROVIDER_NAME, teamNameStatusText(statusItems, teamName));
 			return;
 		}
 
@@ -78,7 +83,7 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 		try {
 			const balance = await fetchCredits(auth.apiKey);
 			if (generation === refreshGeneration) {
-				ctx.ui.setStatus(PROVIDER_NAME, statusText(balance, statusItems, storedTeamName(ctx)));
+				ctx.ui.setStatus(PROVIDER_NAME, statusText(balance, statusItems, teamName));
 			}
 		} catch (err) {
 			console.error(`Failed to fetch Hyper /credits: ${String(err)}`);
@@ -128,8 +133,8 @@ async function configureStatusItems(ctx: ExtensionContext): Promise<boolean> {
 	let draft: HyperStatusItems = { ...initial };
 
 	for (;;) {
-		const teamOption = `Team name prefix: ${onOff(draft.teamName)}`;
-		const creditsOption = `Hyper credits balance: ${onOff(draft.hypercredits)}`;
+		const teamOption = `Team name: ${onOff(draft.teamName)}`;
+		const creditsOption = `Hypercredit balance: ${onOff(draft.hypercredits)}`;
 		const resetOption = "Reset to defaults";
 		const saveOption = "Save changes";
 		const cancelOption = "Cancel";
