@@ -19,7 +19,10 @@ pi install git:github.com/charmbracelet/pi-hyper-provider
 
 ## Usage
 
-Once installed, run `/login` and select the `Charm Hyper` provider to log in.
+- To authenticate with OAuth, run `/login`, pick `Subscription`, and select the
+  `Charm Hyper` provider.
+- To authenticate with an API key, set the `HYPER_API_KEY` environment variable.
+
 Models are fetched at startup and cached locally; the cache is used as a
 fallback when the `/models` endpoint is unreachable. By default, your remaining
 Hypercredit balance is shown in the status line while a Hyper model is active.
