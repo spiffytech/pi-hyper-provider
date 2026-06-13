@@ -24,5 +24,7 @@ mise run release:publish -- --tag <tag> [--otp <otp>]
 
 ## Gotchas
 
-- There is no test script in this package right now; validate with the narrowest relevant command above, then `mise run check` when feasible.
-- Do not bypass `mise` with raw `npm` unless strictly necessary; mise tasks may do additional work.
+- There is no test script in this package right now; validate with the narrowest
+  relevant command above, then `mise run check` when feasible.
+- Do not bypass `mise` with raw `npm` unless strictly necessary; mise tasks may
+  do additional work.
