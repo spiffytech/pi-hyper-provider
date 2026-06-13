@@ -1,6 +1,11 @@
 # AGENTS.md
 
-i package integrating Charm's Hyper inference provider with the rest of Pi.
+Pi package integrating Charm's Hyper inference provider with the rest of Pi.
+
+- Follow Conventional Commits of the form `<type>(<scope>): <description>`.
+- Do not commit with explicit user instruction to.
+- Never open PRs yourself. You may only provide commands to do so and let the
+  user open PRs themselves.
 
 ## Commands
 
