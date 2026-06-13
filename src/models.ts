@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import type { ThinkingLevel, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
@@ -8,14 +9,7 @@ import { parseSchema } from "./schema.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 10_000;
 
-const ReasoningEffortLevelSchema = Type.Union([
-	Type.Literal("off"),
-	Type.Literal("minimal"),
-	Type.Literal("low"),
-	Type.Literal("medium"),
-	Type.Literal("high"),
-	Type.Literal("xhigh"),
-]);
+const PI_THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
 
 const HyperModelBaseFields = {
 	id: Type.String({ minLength: 1 }),
@@ -34,10 +28,10 @@ const HyperModelSchema = Type.Union([
 		{
 			...HyperModelBaseFields,
 			supports_reasoning_effort: Type.Literal(true),
-			reasoning_effort_levels: Type.Array(ReasoningEffortLevelSchema, {
+			reasoning_effort_levels: Type.Array(Type.String({ minLength: 1 }), {
 				minItems: 1,
 			}),
-			default_reasoning_effort: ReasoningEffortLevelSchema,
+			default_reasoning_effort: Type.String({ minLength: 1 }),
 		},
 		{ additionalProperties: false },
 	),
@@ -58,9 +52,6 @@ const ModelPayloadSchema = Type.Object(
 	{ additionalProperties: false },
 );
 
-type ReasoningEffortLevel = Static<typeof ReasoningEffortLevelSchema>;
-type ThinkingLevel = Exclude<ReasoningEffortLevel, "off">;
-type ThinkingLevelMap = Partial<Record<ReasoningEffortLevel, string | null>>;
 type HyperModel = Static<typeof HyperModelSchema>;
 
 function modelCachePath(): string {
@@ -90,13 +81,13 @@ function toProviderModel(model: HyperModel): ProviderModelConfig {
 	};
 }
 
-function buildThinkingLevelMap(levels: ReasoningEffortLevel[]): ThinkingLevelMap | undefined {
+function buildThinkingLevelMap(levels: string[]): ThinkingLevelMap | undefined {
 	if (levels.length === 0) return undefined;
-	const availableLevels = new Set(levels);
+	const availableLevels = new Set<string>(levels);
 	const result: ThinkingLevelMap = {
 		off: availableLevels.has("off") ? "off" : null,
 	};
-	for (const level of ["minimal", "low", "medium", "high", "xhigh"] satisfies ThinkingLevel[]) {
+	for (const level of PI_THINKING_LEVELS) {
 		result[level] = availableLevels.has(level) ? level : null;
 	}
 	return result;
