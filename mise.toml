@@ -57,6 +57,7 @@ if [[ -n "$preid" ]]; then
 	esac
 fi
 
+mise run check
 args=(version "$version" --no-git-tag-version)
 if [[ -n "$preid" ]]; then
 	args+=(--preid "$preid")
