@@ -37,11 +37,9 @@ on/off/reset. `teamName` defaults to `false` and `hypercredits` defaults to
 /hyper-status reset
 ```
 
-### Environment variables
+## Contributing
 
-- `HYPER_URL` — override the Hyper base URL (default
-  `https://hyper.charm.land`).
-- `HYPER_API_KEY` — API key used when not authenticating via OAuth.
+See the [contributing guide](https://github.com/charmbracelet/pi-hyper-provider?tab=contributing-ov-file#contributing).
 
 ## Whatcha think?
 
