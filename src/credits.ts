@@ -191,48 +191,17 @@ function updateStatusItems(args: string): string {
 		return "Usage: /hyper-status [teamName true|false | hypercredits true|false | reset]";
 	}
 
-	const key = statusItemKey(tokens[0]);
-	const value = booleanArgument(tokens[1]);
-	if (!key || value === undefined) {
+	const [key, rawValue] = tokens;
+	if ((key !== "teamName" && key !== "hypercredits") || (rawValue !== "true" && rawValue !== "false")) {
 		return "Usage: /hyper-status [teamName true|false | hypercredits true|false | reset]";
 	}
 
 	const statusItems = {
 		...readHyperStatusItems(),
-		[key]: value,
+		[key]: rawValue === "true",
 	};
 	writeHyperStatusItems(statusItems);
 	return `Hyper status updated. ${statusItemsSummary(statusItems)}`;
-}
-
-function statusItemKey(value: string): keyof HyperStatusItems | undefined {
-	switch (value.toLowerCase()) {
-		case "team":
-		case "teamname":
-		case "team-name":
-			return "teamName";
-		case "credits":
-		case "hypercredits":
-		case "hyper-credits":
-			return "hypercredits";
-		default:
-			return undefined;
-	}
-}
-
-function booleanArgument(value: string): boolean | undefined {
-	switch (value.toLowerCase()) {
-		case "true":
-		case "on":
-		case "yes":
-			return true;
-		case "false":
-		case "off":
-		case "no":
-			return false;
-		default:
-			return undefined;
-	}
 }
 
 function onOff(value: boolean): "on" | "off" {
