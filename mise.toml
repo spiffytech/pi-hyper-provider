@@ -14,8 +14,12 @@ description = "Type-check with TypeScript"
 run = "npm run typecheck"
 
 [tasks.check]
-description = "Format, lint, and type-check"
-depends = ["fmt", "lint", "typecheck"]
+description = "Format, lint, then type-check"
+run = [
+	"mise run fmt",
+	"mise run lint",
+	"mise run typecheck",
+]
 
 [tasks."release:bump"]
 description = "Bump the package version"
