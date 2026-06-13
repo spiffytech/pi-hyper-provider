@@ -39,12 +39,14 @@ on/off/reset. `teamName` defaults to `false` and `hypercredits` defaults to
 
 ### Environment variables
 
-- `HYPER_URL` — override the Hyper base URL (default `https://hyper.charm.land`).
+- `HYPER_URL` — override the Hyper base URL (default
+  `https://hyper.charm.land`).
 - `HYPER_API_KEY` — API key used when not authenticating via OAuth.
 
 ## Whatcha think?
 
-We’d love to hear your thoughts on this project. Need help? We gotchu. You can find us on:
+We’d love to hear your thoughts on this project. Need help? We gotchu. You can
+find us on:
 
 - [Twitter](https://twitter.com/charmcli)
 - [Slack][slack]
