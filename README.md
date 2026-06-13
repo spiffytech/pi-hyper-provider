@@ -18,6 +18,15 @@ flow. Models are fetched from the Hyper API at startup and cached locally; the
 cache is used as a fallback when the API is unreachable. Your remaining credit
 balance is shown in the status line while a Hyper model is active.
 
+Use `/hyper-status` to configure the status line interactively. The scriptable
+forms are also available:
+
+```sh
+/hyper-status teamName true
+/hyper-status hypercredits false
+/hyper-status reset
+```
+
 ### Environment variables
 
 - `HYPER_URL` — override the Hyper base URL (default `https://hyper.charm.land`).
