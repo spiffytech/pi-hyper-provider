@@ -19,17 +19,21 @@ pi install git:github.com/charmbracelet/pi-hyper-provider
 
 ## Usage
 
-- To authenticate with OAuth, run `/login`, pick `Subscription`, and select the
+- To authenticate with OAuth, open `pi`, send `/login`, pick `Subscription`, and select the
   `Charm Hyper` provider.
-- To authenticate with an API key, set the `HYPER_API_KEY` environment variable.
+- To authenticate with an API key, set the `HYPER_API_KEY` environment variable
+  then open `pi`.
 
-Models are fetched at startup and cached locally; the cache is used as a
+Pick a Hyper model by sending `/models` and filtering by either provider name
+`hyper` or `model-name`.
+
+Model info is fetched at startup and cached locally; the cache is used as a
 fallback when the `/models` endpoint is unreachable. By default, your remaining
 Hypercredit balance is shown in the status line while a Hyper model is active.
 
 Use `/hyper-status` to configure the status line interactively and toggle things
-on/off/reset. `teamName` defaults to `false` and `hypercredits` defaults to
-`true`. Scriptable forms are also available:
+on/off or reset to the defaults. `teamName` defaults to `false` and
+`hypercredits` defaults to `true`. You can also set values directly:
 
 ```sh
 /hyper-status teamName true
