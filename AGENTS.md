@@ -3,7 +3,7 @@
 Pi package integrating Charm's Hyper inference provider with the rest of Pi.
 
 - Follow Conventional Commits of the form `<type>(<scope>): <description>`.
-- Do not commit with explicit user instruction to.
+- Do not commit without explicit user instruction to.
 - Never open PRs yourself. You may only provide commands to do so and let the
   user open PRs themselves.
 - Prefer to rely on Pi's packages and public API as much as feasible. It
