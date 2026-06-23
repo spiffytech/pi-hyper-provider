@@ -1,7 +1,7 @@
 {
 	"name": "@charmland/pi-hyper-provider",
 	"version": "0.1.0",
-	"description": "Charm Hyper provider extension for Pi",
+	"description": "Pi extension for Charm's Hyper inference provider",
 	"keywords": [
 		"pi-package"
 	],
