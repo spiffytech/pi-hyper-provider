@@ -21,15 +21,15 @@
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
-		"@earendil-works/pi-coding-agent": "*"
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
 	},
-	"dependencies": {
-		"typebox": "^1.1.38"
-	},
+	"dependencies": {},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.16",
-		"@earendil-works/pi-ai": "^0.78.0",
-		"@earendil-works/pi-coding-agent": "^0.78.0",
+		"@earendil-works/pi-ai": "^0.80.1",
+		"@earendil-works/pi-coding-agent": "^0.80.1",
+		"typebox": "^1.1.38",
 		"typescript": "^6.0.3"
 	},
 	"type": "module",
