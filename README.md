@@ -61,7 +61,7 @@ find us on:
 
 ## License
 
-[TODO](https://github.com/charmbracelet/pi-hyper-provider/raw/main/LICENSE.md)
+[MIT](https://github.com/charmbracelet/pi-hyper-provider/raw/main/LICENSE)
 
 ---
 
