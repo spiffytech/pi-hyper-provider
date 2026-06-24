@@ -45,6 +45,14 @@ on/off or reset to the defaults. `teamName` defaults to `false` and
 
 See the [contributing guide](https://github.com/charmbracelet/pi-hyper-provider?tab=contributing-ov-file#contributing).
 
+## Releasing
+
+1. `mise run release:bump
+<patch|minor|major|prepatch|preminor|premajor|prerelease>` to increment the
+   version
+2. `mise run release:pack` to dry-run build the release tarball
+3. `mise run release:publish` to publish
+
 ## Whatcha think?
 
 We’d love to hear your thoughts on this project. Need help? We gotchu. You can
