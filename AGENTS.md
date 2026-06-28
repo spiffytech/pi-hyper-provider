@@ -24,7 +24,7 @@ Use `mise` to automatically apply the configured Node version and task wrappers.
 mise run fmt # format all files with Biome; run often
 mise run lint # lint all files with Biome; run often
 mise run typecheck # check types with tsc; run often
-mise run check # fmt, lint, then typecheck sequentially; run before committing/ending your turn
+mise run check # biome check --write, then typecheck sequentially; run before committing/ending your turn
 mise run lint ::: typecheck # lint and typecheck in parallel
 ```
 

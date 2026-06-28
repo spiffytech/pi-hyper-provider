@@ -9,15 +9,18 @@ run = "npm run fmt"
 description = "Lint all files with Biome"
 run = "npm run lint"
 
+[tasks."check:biome"]
+description = "Format, lint, and organize imports with Biome"
+run = "npm run check:biome"
+
 [tasks.typecheck]
 description = "Type-check with TypeScript"
 run = "npm run typecheck"
 
 [tasks.check]
-description = "Format, lint, then type-check"
+description = "Run Biome checks, then type-check"
 run = [
-	"mise run fmt",
-	"mise run lint",
+	"mise run check:biome",
 	"mise run typecheck",
 ]
 

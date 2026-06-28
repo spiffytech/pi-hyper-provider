@@ -19,6 +19,7 @@
 	"scripts": {
 		"fmt": "biome format --write .",
 		"lint": "biome lint .",
+		"check:biome": "biome check --write .",
 		"typecheck": "tsc --noEmit"
 	},
 	"peerDependencies": {
