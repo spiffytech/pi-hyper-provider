@@ -9,6 +9,7 @@ import { hyperApiBaseUrl, hyperProviderDir, legacyHyperExtensionDir } from "./hy
 import { parseSchema } from "./schema.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 3_000;
+const MODEL_CACHE_VERSION = 1;
 
 const PI_THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
 // Hyper models without reasoning levels are on/off-only. Use Pi's medium level
@@ -88,8 +89,23 @@ const ProviderPayloadSchema = Type.Object(
 	{ additionalProperties: true },
 );
 
+const ModelCacheEnvelopeSchema = Type.Object(
+	{
+		version: Type.Literal(MODEL_CACHE_VERSION),
+		hyperApiBaseUrl: Type.String({ minLength: 1 }),
+		fetchedAt: Type.String({ minLength: 1 }),
+		payload: ProviderPayloadSchema,
+	},
+	{ additionalProperties: false },
+);
+
 type HyperModel = Static<typeof HyperModelSchema>;
 type ProviderModel = Static<typeof ProviderModelSchema>;
+type ProviderPayload = Static<typeof ProviderPayloadSchema>;
+type LegacyModelPayload = Static<typeof ModelPayloadSchema>;
+type ModelCacheEnvelope = Static<typeof ModelCacheEnvelopeSchema>;
+type ModelCatalog = { kind: "provider"; payload: ProviderPayload } | { kind: "legacy"; payload: LegacyModelPayload };
+type ModelCacheRead = { status: "hit"; catalog: ModelCatalog } | { status: "miss" } | { status: "blocked" };
 
 function modelCachePath(): string {
 	return path.join(hyperProviderDir(), "models.json");
@@ -160,11 +176,27 @@ function toLegacyProviderModel(model: HyperModel): ProviderModelConfig {
 	};
 }
 
-function modelsFromPayload(payload: unknown, source: string): ProviderModelConfig[] {
-	if (Value.Check(ProviderPayloadSchema, payload)) {
-		return Value.Parse(ProviderPayloadSchema, payload).models.map(toProviderModel);
+function modelsFromCatalog(catalog: ModelCatalog): ProviderModelConfig[] {
+	switch (catalog.kind) {
+		case "provider":
+			return catalog.payload.models.map(toProviderModel);
+		case "legacy":
+			return catalog.payload.data.map(toLegacyProviderModel);
 	}
-	return parseSchema(ModelPayloadSchema, payload, source).data.map(toLegacyProviderModel);
+}
+
+function providerPayload(payload: unknown, source: string): ProviderPayload {
+	return parseSchema(ProviderPayloadSchema, payload, source);
+}
+
+function optionalModelCatalog(payload: unknown): ModelCatalog | undefined {
+	if (Value.Check(ProviderPayloadSchema, payload)) {
+		return { kind: "provider", payload: Value.Parse(ProviderPayloadSchema, payload) };
+	}
+	if (Value.Check(ModelPayloadSchema, payload)) {
+		return { kind: "legacy", payload: Value.Parse(ModelPayloadSchema, payload) };
+	}
+	return undefined;
 }
 
 function buildThinkingLevelMap(levels: string[]): ThinkingLevelMap | undefined {
@@ -185,16 +217,14 @@ async function fetchModelPayload(): Promise<unknown> {
 	});
 }
 
-function readCachedModelPayload(): unknown | undefined {
+function readCachedModelCatalog(): ModelCatalog | undefined {
 	const cachePath = modelCachePath();
-	const payload = readJsonCache(cachePath, "Hyper model cache");
-	if (payload !== undefined) return payload;
+	const cache = readModelCache(cachePath, "Hyper model cache");
+	if (cache.status === "hit") return cache.catalog;
+	if (cache.status === "blocked") return undefined;
 
-	const legacyPayload = readJsonCache(legacyModelCachePath(), "legacy Hyper model cache");
-	if (legacyPayload === undefined) return undefined;
-
-	writeMigratedModelPayload(legacyPayload);
-	return legacyPayload;
+	const legacyCache = readModelCache(legacyModelCachePath(), "legacy Hyper model cache");
+	return legacyCache.status === "hit" ? legacyCache.catalog : undefined;
 }
 
 function readJsonCache(cachePath: string, description: string): unknown | undefined {
@@ -207,24 +237,70 @@ function readJsonCache(cachePath: string, description: string): unknown | undefi
 	}
 }
 
-function writeCachedModelPayload(payload: unknown): void {
-	try {
-		mkdirSync(hyperProviderDir(), { recursive: true });
-		writeFileSync(modelCachePath(), `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
-	} catch (err) {
-		console.error(`Failed to write Hyper model cache: ${String(err)}`);
-	}
+function readModelCache(cachePath: string, description: string): ModelCacheRead {
+	const cache = readJsonCache(cachePath, description);
+	if (cache === undefined) return { status: "miss" };
+	return unwrapModelCache(cache, description);
 }
 
-function writeMigratedModelPayload(payload: unknown): void {
-	const cachePath = modelCachePath();
+function unwrapModelCache(cache: unknown, description: string): ModelCacheRead {
+	const envelopeBaseUrl = modelCacheEnvelopeBaseUrl(cache);
+	if (envelopeBaseUrl !== undefined) {
+		const expectedBaseUrl = hyperApiBaseUrl();
+		if (envelopeBaseUrl !== expectedBaseUrl) {
+			console.error(`Ignoring ${description} for ${envelopeBaseUrl}; current Hyper API base URL is ${expectedBaseUrl}`);
+			return { status: "blocked" };
+		}
+	}
+
+	if (Value.Check(ModelCacheEnvelopeSchema, cache)) {
+		const envelope = Value.Parse(ModelCacheEnvelopeSchema, cache);
+		return { status: "hit", catalog: { kind: "provider", payload: envelope.payload } };
+	}
+
+	if (isModelCacheEnvelopeLike(cache)) {
+		console.error(`Ignoring invalid ${description} metadata`);
+		return { status: "blocked" };
+	}
+
+	const catalog = optionalModelCatalog(cache);
+	if (catalog === undefined) {
+		console.error(`Ignoring invalid ${description}`);
+		return { status: "miss" };
+	}
+
+	return { status: "hit", catalog };
+}
+
+function isModelCacheEnvelopeLike(cache: unknown): boolean {
+	if (!isRecord(cache)) return false;
+	if (Object.hasOwn(cache, "hyperApiBaseUrl") || Object.hasOwn(cache, "fetchedAt")) return true;
+	if (Object.hasOwn(cache, "version") && Object.hasOwn(cache, "payload")) return true;
+	return false;
+}
+
+function modelCacheEnvelopeBaseUrl(cache: unknown): string | undefined {
+	if (!isRecord(cache)) return undefined;
+	const value = Object.getOwnPropertyDescriptor(cache, "hyperApiBaseUrl")?.value;
+	return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function modelCacheEnvelope(payload: ProviderPayload): ModelCacheEnvelope {
+	return {
+		version: MODEL_CACHE_VERSION,
+		hyperApiBaseUrl: hyperApiBaseUrl(),
+		fetchedAt: new Date().toISOString(),
+		payload,
+	};
+}
+
+function writeCachedModelPayload(payload: ProviderPayload): void {
 	try {
 		mkdirSync(hyperProviderDir(), { recursive: true });
-		writeFileSync(cachePath, `${JSON.stringify(payload, null, 2)}\n`, { encoding: "utf-8", flag: "wx" });
+		writeFileSync(modelCachePath(), `${JSON.stringify(modelCacheEnvelope(payload), null, 2)}\n`, "utf-8");
 		removeLegacyModelCache();
 	} catch (err) {
-		if (errorCode(err) === "EEXIST") return;
-		console.error(`Failed to migrate legacy Hyper model cache to ${cachePath}: ${String(err)}`);
+		console.error(`Failed to write Hyper model cache: ${String(err)}`);
 	}
 }
 
@@ -238,29 +314,26 @@ function removeLegacyModelCache(): void {
 	}
 }
 
-function migrateModelCache(): void {
-	if (existsSync(modelCachePath())) return;
-	const legacyPayload = readJsonCache(legacyModelCachePath(), "legacy Hyper model cache");
-	if (legacyPayload !== undefined) writeMigratedModelPayload(legacyPayload);
-}
-
 function errorCode(err: unknown): string | undefined {
 	const code = err instanceof Error ? Object.getOwnPropertyDescriptor(err, "code")?.value : undefined;
 	return typeof code === "string" ? code : undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export async function loadModels(): Promise<ProviderModelConfig[]> {
-	migrateModelCache();
 	try {
 		const payload = await fetchModelPayload();
-		const models = modelsFromPayload(payload, "Hyper /provider response");
-		writeCachedModelPayload(payload);
-		return models;
+		const providerCatalog = providerPayload(payload, "Hyper /provider response");
+		writeCachedModelPayload(providerCatalog);
+		return providerCatalog.models.map(toProviderModel);
 	} catch (err) {
-		const cachedPayload = readCachedModelPayload();
-		if (cachedPayload !== undefined) {
+		const cachedCatalog = readCachedModelCatalog();
+		if (cachedCatalog !== undefined) {
 			console.error(`Failed to fetch Hyper /provider, using cached model list: ${String(err)}`);
-			return modelsFromPayload(cachedPayload, "Hyper model cache");
+			return modelsFromCatalog(cachedCatalog);
 		}
 		throw err;
 	}

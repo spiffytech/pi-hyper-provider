@@ -28,8 +28,9 @@ Pick a Hyper model by sending `/model` and filtering by either provider name
 `hyper` or `model-name` like `glm-5.1`.
 
 Model info is fetched at startup and cached locally; the cache is used as a
-fallback when the `/models` endpoint is unreachable. By default, your remaining
-Hypercredit balance is shown in the status line while a Hyper model is active.
+fallback when the Hyper provider catalog is unreachable. By default, your
+remaining Hypercredit balance is shown in the status line while a Hyper model is
+active.
 
 Use `/hyper-status` to configure the status line interactively and toggle things
 on/off or reset to the defaults. `teamName` defaults to `false` and
