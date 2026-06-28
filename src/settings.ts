@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
+import { hyperProviderDir } from "./hyper.js";
 
 const HyperStatusItemsSchema = Type.Object(
 	{
@@ -20,47 +21,105 @@ const DEFAULT_STATUS_ITEMS: HyperStatusItems = {
 };
 
 function settingsPath(): string {
+	return path.join(hyperProviderDir(), "settings.json");
+}
+
+function legacySettingsPath(): string {
 	return path.join(getAgentDir(), "settings.json");
 }
 
 export function readHyperStatusItems(): HyperStatusItems {
 	const settings = readSettingsObject();
-	const hyper = propertyObject(settings, "hyper");
-	const statusItems = hyper ? property(hyper, "statusItems") : undefined;
-	if (statusItems === undefined) return { ...DEFAULT_STATUS_ITEMS };
-	if (!Value.Check(HyperStatusItemsSchema, statusItems)) {
-		console.error("Ignoring invalid hyper.statusItems in settings.json");
-		return { ...DEFAULT_STATUS_ITEMS };
+	const statusItems = property(settings, "statusItems");
+	if (statusItems !== undefined) {
+		return (
+			parseHyperStatusItems(statusItems, "statusItems in hyper-provider/settings.json") ??
+			readLegacyHyperStatusItems() ?? { ...DEFAULT_STATUS_ITEMS }
+		);
 	}
 
-	return {
-		...DEFAULT_STATUS_ITEMS,
-		...Value.Parse(HyperStatusItemsSchema, statusItems),
-	};
+	return readLegacyHyperStatusItems() ?? { ...DEFAULT_STATUS_ITEMS };
 }
 
 export function writeHyperStatusItems(statusItems: HyperStatusItems): void {
 	const settings = readSettingsObject();
-	const existingHyper = propertyObject(settings, "hyper") ?? {};
-	settings.hyper = {
-		...existingHyper,
-		statusItems,
-	};
+	settings.statusItems = statusItems;
 
-	mkdirSync(getAgentDir(), { recursive: true });
+	mkdirSync(hyperProviderDir(), { recursive: true });
 	writeFileSync(settingsPath(), `${JSON.stringify(settings, null, 2)}\n`, "utf-8");
+}
+
+export function migrateHyperSettings(): void {
+	const legacySettings = readSettingsObject(legacySettingsPath());
+	const legacyHyper = propertyObject(legacySettings, "hyper");
+	if (!legacyHyper) return;
+
+	const legacyStatusItems = parseHyperStatusItems(
+		property(legacyHyper, "statusItems"),
+		"hyper.statusItems in settings.json",
+	);
+	const settings = readSettingsObject();
+	const statusItems = property(settings, "statusItems");
+	let hasUsableStatusItems =
+		parseHyperStatusItems(statusItems, "statusItems in hyper-provider/settings.json") !== undefined;
+
+	if (statusItems === undefined && legacyStatusItems !== undefined) {
+		settings.statusItems = legacyStatusItems;
+		writeSettingsObject(settingsPath(), settings);
+		hasUsableStatusItems = true;
+	}
+	if (!hasUsableStatusItems) return;
+
+	removeLegacyHyperStatusItems();
 }
 
 export function defaultHyperStatusItems(): HyperStatusItems {
 	return { ...DEFAULT_STATUS_ITEMS };
 }
 
-function readSettingsObject(): Record<string, unknown> {
-	const filePath = settingsPath();
+function readSettingsObject(filePath = settingsPath()): Record<string, unknown> {
 	if (!existsSync(filePath)) return {};
 	const payload = JSON.parse(readFileSync(filePath, "utf-8"));
 	if (!isRecord(payload)) throw new Error(`${filePath} must contain a JSON object`);
 	return payload;
+}
+
+function writeSettingsObject(filePath: string, settings: Record<string, unknown>): void {
+	mkdirSync(path.dirname(filePath), { recursive: true });
+	writeFileSync(filePath, `${JSON.stringify(settings, null, 2)}\n`, "utf-8");
+}
+
+function removeLegacyHyperStatusItems(): void {
+	const legacySettings = readSettingsObject(legacySettingsPath());
+	const legacyHyper = propertyObject(legacySettings, "hyper");
+	if (!legacyHyper || property(legacyHyper, "statusItems") === undefined) return;
+
+	delete legacyHyper.statusItems;
+	if (Object.keys(legacyHyper).length === 0) {
+		delete legacySettings.hyper;
+	}
+	writeSettingsObject(legacySettingsPath(), legacySettings);
+}
+
+function readLegacyHyperStatusItems(): HyperStatusItems | undefined {
+	const legacySettings = readSettingsObject(legacySettingsPath());
+	const legacyHyper = propertyObject(legacySettings, "hyper");
+	return legacyHyper
+		? parseHyperStatusItems(property(legacyHyper, "statusItems"), "hyper.statusItems in settings.json")
+		: undefined;
+}
+
+function parseHyperStatusItems(value: unknown, source: string): HyperStatusItems | undefined {
+	if (value === undefined) return undefined;
+	if (!Value.Check(HyperStatusItemsSchema, value)) {
+		console.error(`Ignoring invalid ${source}`);
+		return undefined;
+	}
+
+	return {
+		...DEFAULT_STATUS_ITEMS,
+		...Value.Parse(HyperStatusItemsSchema, value),
+	};
 }
 
 function property(source: Record<string, unknown>, key: string): unknown {
