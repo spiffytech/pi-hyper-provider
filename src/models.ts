@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { ThinkingLevel, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
+import { Value } from "typebox/value";
 import { fetchJson } from "./http.js";
 import { hyperApiBaseUrl, hyperProviderDir, legacyHyperExtensionDir } from "./hyper.js";
 import { parseSchema } from "./schema.js";
@@ -52,7 +53,33 @@ const ModelPayloadSchema = Type.Object(
 	{ additionalProperties: true },
 );
 
+const ProviderModelSchema = Type.Object(
+	{
+		id: Type.String({ minLength: 1 }),
+		name: Type.String({ minLength: 1 }),
+		cost_per_1m_in: Type.Number({ minimum: 0 }),
+		cost_per_1m_out: Type.Number({ minimum: 0 }),
+		cost_per_1m_in_cached: Type.Number({ minimum: 0 }),
+		cost_per_1m_out_cached: Type.Optional(Type.Number({ minimum: 0 })),
+		context_window: Type.Integer({ minimum: 1 }),
+		default_max_tokens: Type.Integer({ minimum: 1 }),
+		can_reason: Type.Boolean(),
+		reasoning_levels: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
+		default_reasoning_effort: Type.Optional(Type.String({ minLength: 1 })),
+		supports_attachments: Type.Boolean(),
+	},
+	{ additionalProperties: true },
+);
+
+const ProviderPayloadSchema = Type.Object(
+	{
+		models: Type.Array(ProviderModelSchema, { minItems: 1 }),
+	},
+	{ additionalProperties: true },
+);
+
 type HyperModel = Static<typeof HyperModelSchema>;
+type ProviderModel = Static<typeof ProviderModelSchema>;
 
 function modelCachePath(): string {
 	return path.join(hyperProviderDir(), "models.json");
@@ -62,7 +89,37 @@ function legacyModelCachePath(): string {
 	return path.join(legacyHyperExtensionDir(), "models.json");
 }
 
-function toProviderModel(model: HyperModel): ProviderModelConfig {
+function toProviderModel(model: ProviderModel): ProviderModelConfig {
+	const input: ProviderModelConfig["input"] = model.supports_attachments ? ["text", "image"] : ["text"];
+	const reasoningLevels = model.reasoning_levels ?? [];
+	const supportsReasoningEffort = reasoningLevels.length > 0;
+	const thinkingLevelMap = supportsReasoningEffort ? buildThinkingLevelMap(reasoningLevels) : undefined;
+
+	return {
+		id: model.id,
+		name: model.name,
+		reasoning: model.can_reason,
+		thinkingLevelMap,
+		input,
+		cost: {
+			input: model.cost_per_1m_in,
+			output: model.cost_per_1m_out,
+			cacheRead: model.cost_per_1m_in_cached,
+			// Hyper exposes cached input/output prices, but Pi only models cached
+			// input reads and cache writes. Hyper does not expose a cache-write price.
+			cacheWrite: 0,
+		},
+		contextWindow: model.context_window,
+		maxTokens: model.default_max_tokens,
+		compat: {
+			supportsStore: false,
+			supportsReasoningEffort,
+			maxTokensField: "max_tokens",
+		},
+	};
+}
+
+function toLegacyProviderModel(model: HyperModel): ProviderModelConfig {
 	const input: ProviderModelConfig["input"] = model.supports_attachments ? ["text", "image"] : ["text"];
 	const thinkingLevelMap = model.supports_reasoning_effort
 		? buildThinkingLevelMap(model.reasoning_effort_levels)
@@ -85,6 +142,13 @@ function toProviderModel(model: HyperModel): ProviderModelConfig {
 	};
 }
 
+function modelsFromPayload(payload: unknown, source: string): ProviderModelConfig[] {
+	if (Value.Check(ProviderPayloadSchema, payload)) {
+		return Value.Parse(ProviderPayloadSchema, payload).models.map(toProviderModel);
+	}
+	return parseSchema(ModelPayloadSchema, payload, source).data.map(toLegacyProviderModel);
+}
+
 function buildThinkingLevelMap(levels: string[]): ThinkingLevelMap | undefined {
 	if (levels.length === 0) return undefined;
 	const availableLevels = new Set<string>(levels);
@@ -98,7 +162,7 @@ function buildThinkingLevelMap(levels: string[]): ThinkingLevelMap | undefined {
 }
 
 async function fetchModelPayload(): Promise<unknown> {
-	return fetchJson(`${hyperApiBaseUrl()}/models`, {
+	return fetchJson(`${hyperApiBaseUrl()}/provider`, {
 		timeoutMs: MODEL_FETCH_TIMEOUT_MS,
 	});
 }
@@ -171,14 +235,14 @@ export async function loadModels(): Promise<ProviderModelConfig[]> {
 	migrateModelCache();
 	try {
 		const payload = await fetchModelPayload();
-		const models = parseSchema(ModelPayloadSchema, payload, "Hyper /models response").data.map(toProviderModel);
+		const models = modelsFromPayload(payload, "Hyper /provider response");
 		writeCachedModelPayload(payload);
 		return models;
 	} catch (err) {
 		const cachedPayload = readCachedModelPayload();
 		if (cachedPayload !== undefined) {
-			console.error(`Failed to fetch Hyper /models, using cached model list: ${String(err)}`);
-			return parseSchema(ModelPayloadSchema, cachedPayload, "Hyper model cache").data.map(toProviderModel);
+			console.error(`Failed to fetch Hyper /provider, using cached model list: ${String(err)}`);
+			return modelsFromPayload(cachedPayload, "Hyper model cache");
 		}
 		throw err;
 	}
