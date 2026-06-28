@@ -82,10 +82,6 @@ type TokenExchangeResponse =
 	| Static<typeof TokenExchangeWithExpiresInSchema>
 	| Static<typeof TokenExchangeWithExpiresAtSchema>;
 
-type HyperOAuthCredentials = OAuthCredentials & {
-	teamName?: string;
-};
-
 async function initiateDeviceAuth(signal?: AbortSignal): Promise<DeviceAuthResponse> {
 	const payload = await fetchJson(`${hyperBaseUrl()}/device/auth`, {
 		method: "POST",
@@ -172,7 +168,7 @@ function parseTokenExchangeResponse(payload: unknown): TokenExchangeResponse {
 function tokenToCredentials(
 	token: TokenExchangeResponse,
 	fallbackRefreshToken: string,
-	metadata?: Pick<HyperOAuthCredentials, "teamName">,
+	metadata?: { teamName?: string },
 ): OAuthCredentials {
 	const expires = tokenExpiresAtMs(token);
 	return {
@@ -218,6 +214,6 @@ export async function refreshHyperToken(credentials: OAuthCredentials): Promise<
 }
 
 function teamNameFromCredentials(credentials: OAuthCredentials): string | undefined {
-	const teamName = (credentials as HyperOAuthCredentials).teamName;
+	const teamName = credentials.teamName;
 	return typeof teamName === "string" && teamName.trim() ? teamName : undefined;
 }
