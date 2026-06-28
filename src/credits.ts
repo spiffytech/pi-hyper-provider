@@ -93,6 +93,12 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 		}
 	}
 
+	function refreshInBackground(ctx: ExtensionContext, selectedModel: ExtensionContext["model"] = ctx.model): void {
+		void refresh(ctx, selectedModel).catch((err) => {
+			console.error(`Failed to update Hyper status: ${String(err)}`);
+		});
+	}
+
 	pi.registerCommand("hyper-status", {
 		description: "Configure the Charm Hyper footer status",
 		handler: async (args, ctx) => {
@@ -113,17 +119,17 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
-		await refresh(ctx);
+	pi.on("session_start", (_event, ctx) => {
+		refreshInBackground(ctx);
 	});
 
-	pi.on("model_select", async (event, ctx) => {
-		await refresh(ctx, event.model);
+	pi.on("model_select", (event, ctx) => {
+		refreshInBackground(ctx, event.model);
 	});
 
-	pi.on("message_end", async (event, ctx) => {
+	pi.on("message_end", (event, ctx) => {
 		if (event.message.role === "assistant" && isHyperModel(ctx.model)) {
-			await refresh(ctx);
+			refreshInBackground(ctx);
 		}
 	});
 }
