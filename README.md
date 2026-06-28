@@ -24,7 +24,7 @@ pi install git:github.com/charmbracelet/pi-hyper-provider
 - To authenticate with an API key, set the `HYPER_API_KEY` environment variable
   then open `pi`.
 
-Pick a Hyper model by sending `/models` and filtering by either provider name
+Pick a Hyper model by sending `/model` and filtering by either provider name
 `hyper` or `model-name` like `glm-5.1`.
 
 Model info is fetched at startup and cached locally; the cache is used as a
