@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import type { ThinkingLevel, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import { fetchJson } from "./http.js";
-import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
+import { hyperApiBaseUrl, hyperProviderDir, legacyHyperExtensionDir } from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 3_000;
@@ -55,7 +55,11 @@ const ModelPayloadSchema = Type.Object(
 type HyperModel = Static<typeof HyperModelSchema>;
 
 function modelCachePath(): string {
-	return path.join(hyperExtensionDir(), "models.json");
+	return path.join(hyperProviderDir(), "models.json");
+}
+
+function legacyModelCachePath(): string {
+	return path.join(legacyHyperExtensionDir(), "models.json");
 }
 
 function toProviderModel(model: HyperModel): ProviderModelConfig {
@@ -101,25 +105,70 @@ async function fetchModelPayload(): Promise<unknown> {
 
 function readCachedModelPayload(): unknown | undefined {
 	const cachePath = modelCachePath();
+	const payload = readJsonCache(cachePath, "Hyper model cache");
+	if (payload !== undefined) return payload;
+
+	const legacyPayload = readJsonCache(legacyModelCachePath(), "legacy Hyper model cache");
+	if (legacyPayload === undefined) return undefined;
+
+	writeMigratedModelPayload(legacyPayload);
+	return legacyPayload;
+}
+
+function readJsonCache(cachePath: string, description: string): unknown | undefined {
 	if (!existsSync(cachePath)) return undefined;
 	try {
 		return JSON.parse(readFileSync(cachePath, "utf-8"));
 	} catch (err) {
-		console.error(`Failed to read Hyper model cache at ${cachePath}: ${String(err)}`);
+		console.error(`Failed to read ${description} at ${cachePath}: ${String(err)}`);
 		return undefined;
 	}
 }
 
 function writeCachedModelPayload(payload: unknown): void {
 	try {
-		mkdirSync(hyperExtensionDir(), { recursive: true });
+		mkdirSync(hyperProviderDir(), { recursive: true });
 		writeFileSync(modelCachePath(), `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 	} catch (err) {
 		console.error(`Failed to write Hyper model cache: ${String(err)}`);
 	}
 }
 
+function writeMigratedModelPayload(payload: unknown): void {
+	const cachePath = modelCachePath();
+	try {
+		mkdirSync(hyperProviderDir(), { recursive: true });
+		writeFileSync(cachePath, `${JSON.stringify(payload, null, 2)}\n`, { encoding: "utf-8", flag: "wx" });
+		removeLegacyModelCache();
+	} catch (err) {
+		if (errorCode(err) === "EEXIST") return;
+		console.error(`Failed to migrate legacy Hyper model cache to ${cachePath}: ${String(err)}`);
+	}
+}
+
+function removeLegacyModelCache(): void {
+	const cachePath = legacyModelCachePath();
+	try {
+		unlinkSync(cachePath);
+	} catch (err) {
+		if (errorCode(err) === "ENOENT") return;
+		console.error(`Failed to remove legacy Hyper model cache at ${cachePath}: ${String(err)}`);
+	}
+}
+
+function migrateModelCache(): void {
+	if (existsSync(modelCachePath())) return;
+	const legacyPayload = readJsonCache(legacyModelCachePath(), "legacy Hyper model cache");
+	if (legacyPayload !== undefined) writeMigratedModelPayload(legacyPayload);
+}
+
+function errorCode(err: unknown): string | undefined {
+	const code = err instanceof Error ? Object.getOwnPropertyDescriptor(err, "code")?.value : undefined;
+	return typeof code === "string" ? code : undefined;
+}
+
 export async function loadModels(): Promise<ProviderModelConfig[]> {
+	migrateModelCache();
 	try {
 		const payload = await fetchModelPayload();
 		const models = parseSchema(ModelPayloadSchema, payload, "Hyper /models response").data.map(toProviderModel);

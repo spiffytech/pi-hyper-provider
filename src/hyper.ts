@@ -24,7 +24,11 @@ export function hyperApiBaseUrl(): string {
 	return `${hyperBaseUrl()}/v1`;
 }
 
-export function hyperExtensionDir(): string {
+export function hyperProviderDir(): string {
+	return path.join(getAgentDir(), "hyper-provider");
+}
+
+export function legacyHyperExtensionDir(): string {
 	return path.join(getAgentDir(), "extensions", "hyper-provider");
 }
 
