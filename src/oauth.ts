@@ -3,7 +3,7 @@ import type { OAuthCredentials, OAuthLoginCallbacks } from "@earendil-works/pi-a
 import { pollOAuthDeviceCodeFlow } from "@earendil-works/pi-ai/oauth";
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
-import { fetchJson } from "./http.js";
+import { fetchJson, fetchJsonResponse } from "./http.js";
 import { hyperBaseUrl, hyperJsonHeaders } from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
@@ -108,36 +108,42 @@ async function pollDeviceAuth(deviceAuth: DeviceAuthResponse, signal?: AbortSign
 		expiresInSeconds: deviceAuth.expires_in,
 		signal,
 		poll: async () => {
-			const payload = await fetchJson(`${hyperBaseUrl()}/device/auth/${encodeURIComponent(deviceAuth.device_code)}`, {
-				headers: hyperJsonHeaders(),
-				signal,
-				timeoutMs: OAUTH_FETCH_TIMEOUT_MS,
-				allowHttpErrorPayload: true,
-			});
-			const response = parseDevicePollResponse(payload);
+			const response = await fetchJsonResponse(
+				`${hyperBaseUrl()}/device/auth/${encodeURIComponent(deviceAuth.device_code)}`,
+				{
+					headers: hyperJsonHeaders(),
+					signal,
+					timeoutMs: OAUTH_FETCH_TIMEOUT_MS,
+					allowHttpErrorPayload: true,
+				},
+			);
+			const pollResponse = parseDevicePollResponse(
+				response.payload,
+				`Hyper device token response (HTTP ${response.status})`,
+			);
 
-			if ("refresh_token" in response) {
-				return { status: "complete", value: response };
+			if ("refresh_token" in pollResponse) {
+				return { status: "complete", value: pollResponse };
 			}
-			if (response.error === "authorization_pending") return { status: "pending" };
-			if (response.error === "slow_down") return { status: "slow_down" };
+			if (pollResponse.error === "authorization_pending") return { status: "pending" };
+			if (pollResponse.error === "slow_down") return { status: "slow_down" };
 
 			return {
 				status: "failed",
-				message: `Hyper device authorization failed: ${response.error_description ?? response.error}`,
+				message: `Hyper device authorization failed: ${pollResponse.error_description ?? pollResponse.error}`,
 			};
 		},
 	});
 }
 
-function parseDevicePollResponse(payload: unknown): DevicePollResponse {
+function parseDevicePollResponse(payload: unknown, source = "Hyper device token response"): DevicePollResponse {
 	if (Value.Check(DevicePollSuccessSchema, payload)) {
 		return Value.Parse(DevicePollSuccessSchema, payload);
 	}
 	if (Value.Check(DevicePollErrorSchema, payload)) {
 		return Value.Parse(DevicePollErrorSchema, payload);
 	}
-	parseSchema(DevicePollResponseSchema, payload, "Hyper device token response");
+	parseSchema(DevicePollResponseSchema, payload, source);
 	throw new Error("Hyper device token response is invalid");
 }
 
