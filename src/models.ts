@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import type { ThinkingLevel, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type { ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import { Type, type Static } from "typebox";
-import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
+import { type Static, Type } from "typebox";
 import { fetchJson } from "./http.js";
+import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 10_000;

@@ -1,10 +1,10 @@
 import { hostname } from "node:os";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "@earendil-works/pi-ai";
 import { pollOAuthDeviceCodeFlow } from "@earendil-works/pi-ai/oauth";
-import { Type, type Static } from "typebox";
+import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
-import { hyperBaseUrl, hyperJsonHeaders } from "./hyper.js";
 import { fetchJson } from "./http.js";
+import { hyperBaseUrl, hyperJsonHeaders } from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
 const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 5;

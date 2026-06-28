@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { Type, type Static } from "typebox";
+import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
 
 const HyperStatusItemsSchema = Type.Object(
