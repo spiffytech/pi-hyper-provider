@@ -3,10 +3,8 @@ import * as path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 const require = createRequire(import.meta.url);
-const packageJson = require("../package.json") as {
-	name: string;
-	version: string;
-};
+const packageJsonPayload: unknown = require("../package.json");
+const packageJson = parsePackageJson(packageJsonPayload);
 const packageName = packageJson.name.split("/").at(-1) ?? "pi-hyper-provider";
 
 export const PROVIDER_NAME = "hyper";
@@ -38,4 +36,21 @@ export function hyperJsonHeaders(headers: Record<string, string> = {}): Record<s
 		"User-Agent": HYPER_USER_AGENT,
 		...headers,
 	};
+}
+
+function parsePackageJson(payload: unknown): { name: string; version: string } {
+	if (!isRecord(payload)) throw new Error("package.json must contain a JSON object");
+	const name = property(payload, "name");
+	const version = property(payload, "version");
+	if (typeof name !== "string" || !name.trim()) throw new Error("package.json must contain a name");
+	if (typeof version !== "string" || !version.trim()) throw new Error("package.json must contain a version");
+	return { name, version };
+}
+
+function property(source: Record<string, unknown>, key: string): unknown {
+	return Object.getOwnPropertyDescriptor(source, key)?.value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
