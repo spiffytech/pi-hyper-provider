@@ -33,14 +33,14 @@ const HyperModelSchema = Type.Union([
 			}),
 			default_reasoning_effort: Type.String({ minLength: 1 }),
 		},
-		{ additionalProperties: false },
+		{ additionalProperties: true },
 	),
 	Type.Object(
 		{
 			...HyperModelBaseFields,
 			supports_reasoning_effort: Type.Literal(false),
 		},
-		{ additionalProperties: false },
+		{ additionalProperties: true },
 	),
 ]);
 
@@ -49,7 +49,7 @@ const ModelPayloadSchema = Type.Object(
 		object: Type.Literal("list"),
 		data: Type.Array(HyperModelSchema, { minItems: 1 }),
 	},
-	{ additionalProperties: false },
+	{ additionalProperties: true },
 );
 
 type HyperModel = Static<typeof HyperModelSchema>;
