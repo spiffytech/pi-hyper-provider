@@ -7,7 +7,7 @@ import { fetchJson } from "./http.js";
 import { hyperApiBaseUrl, hyperExtensionDir } from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
-const MODEL_FETCH_TIMEOUT_MS = 10_000;
+const MODEL_FETCH_TIMEOUT_MS = 3_000;
 
 const PI_THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
 
