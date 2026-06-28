@@ -11,6 +11,16 @@ import { parseSchema } from "./schema.js";
 const MODEL_FETCH_TIMEOUT_MS = 3_000;
 
 const PI_THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
+// Hyper models without reasoning levels are on/off-only. Use Pi's medium level
+// as the single representative "on" state; it is not sent as reasoning_effort.
+const ON_OFF_THINKING_LEVEL_MAP: ThinkingLevelMap = {
+	off: "off",
+	minimal: null,
+	low: null,
+	medium: "medium",
+	high: null,
+	xhigh: null,
+};
 
 const HyperModelBaseFields = {
 	id: Type.String({ minLength: 1 }),
@@ -93,7 +103,11 @@ function toProviderModel(model: ProviderModel): ProviderModelConfig {
 	const input: ProviderModelConfig["input"] = model.supports_attachments ? ["text", "image"] : ["text"];
 	const reasoningLevels = model.reasoning_levels ?? [];
 	const supportsReasoningEffort = reasoningLevels.length > 0;
-	const thinkingLevelMap = supportsReasoningEffort ? buildThinkingLevelMap(reasoningLevels) : undefined;
+	const thinkingLevelMap = supportsReasoningEffort
+		? buildThinkingLevelMap(reasoningLevels)
+		: model.can_reason
+			? ON_OFF_THINKING_LEVEL_MAP
+			: undefined;
 
 	return {
 		id: model.id,
@@ -114,6 +128,7 @@ function toProviderModel(model: ProviderModel): ProviderModelConfig {
 		compat: {
 			supportsStore: false,
 			supportsReasoningEffort,
+			thinkingFormat: "deepseek",
 			maxTokensField: "max_tokens",
 		},
 	};
@@ -123,7 +138,9 @@ function toLegacyProviderModel(model: HyperModel): ProviderModelConfig {
 	const input: ProviderModelConfig["input"] = model.supports_attachments ? ["text", "image"] : ["text"];
 	const thinkingLevelMap = model.supports_reasoning_effort
 		? buildThinkingLevelMap(model.reasoning_effort_levels)
-		: undefined;
+		: model.supports_reasoning
+			? ON_OFF_THINKING_LEVEL_MAP
+			: undefined;
 
 	return {
 		id: model.id,
@@ -137,6 +154,7 @@ function toLegacyProviderModel(model: HyperModel): ProviderModelConfig {
 		compat: {
 			supportsStore: false,
 			supportsReasoningEffort: model.supports_reasoning_effort,
+			thinkingFormat: "deepseek",
 			maxTokensField: "max_tokens",
 		},
 	};
