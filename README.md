@@ -48,9 +48,8 @@ See the [contributing guide](https://github.com/charmbracelet/pi-hyper-provider?
 
 ## Releasing
 
-1. `mise run release:bump
-<patch|minor|major|prepatch|preminor|premajor|prerelease>` to increment the
-   version
+1. `mise run release:bump <patch|minor|major|prepatch|preminor|premajor|prerelease>`
+   to increment the version
 2. `mise run release:pack` to dry-run build the release tarball
 3. `mise run release:publish` to publish
 
