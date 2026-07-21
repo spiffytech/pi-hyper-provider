@@ -11,7 +11,14 @@ import { parseSchema } from "./schema.js";
 const MODEL_FETCH_TIMEOUT_MS = 3_000;
 const MODEL_CACHE_VERSION = 1;
 
-const PI_THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
+const PI_THINKING_LEVELS = [
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+] as const satisfies readonly ThinkingLevel[];
 // Hyper models without reasoning levels are on/off-only. Use Pi's medium level
 // as the single representative "on" state; it is not sent as reasoning_effort.
 const ON_OFF_THINKING_LEVEL_MAP: ThinkingLevelMap = {
