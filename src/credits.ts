@@ -49,7 +49,7 @@ function teamNameStatusText(statusItems: HyperStatusItems, teamName: string | un
 	return `${HYPER_GEM} ${teamName}`;
 }
 
-function storedTeamName(_ctx: ExtensionContext): string | undefined {
+function storedTeamName(): string | undefined {
 	const credential = readStoredCredential(PROVIDER_NAME);
 	if (credential?.type !== "oauth") return undefined;
 	const teamName = credential.teamName;
@@ -69,7 +69,7 @@ export function registerCreditStatus(pi: ExtensionAPI): void {
 		}
 
 		const statusItems = readHyperStatusItems();
-		const teamName = storedTeamName(ctx);
+		const teamName = storedTeamName();
 		if (!statusItems.hypercredits) {
 			ctx.ui.setStatus(PROVIDER_NAME, teamNameStatusText(statusItems, teamName));
 			return;
