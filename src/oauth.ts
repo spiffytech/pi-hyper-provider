@@ -92,7 +92,6 @@ async function pollOAuthDeviceCodeFlow<T>(options: {
 	throw new Error(slowDownResponses > 0 ? SLOW_DOWN_TIMEOUT_MESSAGE : TIMEOUT_MESSAGE);
 }
 
-
 const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 5;
 const TOKEN_EXPIRY_BUFFER_MS = 30_000;
 const OAUTH_FETCH_TIMEOUT_MS = 30_000;
