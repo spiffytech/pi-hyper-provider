@@ -4,7 +4,13 @@ import type { Model, ThinkingLevel, ThinkingLevelMap } from "@earendil-works/pi-
 import { type Static, Type } from "typebox";
 import { Value } from "typebox/value";
 import { fetchJson } from "./http.js";
-import { hyperApiBaseUrl, hyperProviderDir, legacyHyperExtensionDir, PROVIDER_NAME } from "./hyper.js";
+import {
+	HYPER_USER_AGENT,
+	hyperApiBaseUrl,
+	hyperProviderDir,
+	legacyHyperExtensionDir,
+	PROVIDER_NAME,
+} from "./hyper.js";
 import { parseSchema } from "./schema.js";
 
 const MODEL_FETCH_TIMEOUT_MS = 3_000;
@@ -137,6 +143,7 @@ function toProviderModel(model: ProviderModel): Model<"openai-completions"> {
 		api: "openai-completions",
 		provider: PROVIDER_NAME,
 		baseUrl: hyperApiBaseUrl(),
+		headers: { "User-Agent": HYPER_USER_AGENT },
 		reasoning: model.can_reason,
 		thinkingLevelMap,
 		input,
@@ -173,6 +180,7 @@ function toLegacyProviderModel(model: HyperModel): Model<"openai-completions"> {
 		api: "openai-completions",
 		provider: PROVIDER_NAME,
 		baseUrl: hyperApiBaseUrl(),
+		headers: { "User-Agent": HYPER_USER_AGENT },
 		reasoning: model.supports_reasoning,
 		thinkingLevelMap,
 		input,
